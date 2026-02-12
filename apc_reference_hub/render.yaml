@@ -2,13 +2,6 @@ services:
   - type: web
     name: apc-reference-hub
     runtime: docker
-    plan: starter
+    plan: free
     autoDeploy: true
     healthCheckPath: /
-    envVars:
-      - key: APC_HUB_DATA_DIR
-        value: /var/data
-    disk:
-      name: apc-hub-disk
-      mountPath: /var/data
-      sizeGB: 5
