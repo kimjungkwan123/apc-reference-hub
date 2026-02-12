@@ -133,7 +133,35 @@ top4.metric("SUCCESS", metric["SUCCESS"])
 top5.metric("FAILED", metric["FAILED"])
 
 st.divider()
-st.subheader("1) URL 큐 등록")
+st.subheader("1) 원클릭 수집 (추천)")
+quick_col1, quick_col2, quick_col3 = st.columns(3)
+quick_brand = _slug(quick_col1.text_input("Quick Brand", value="apc-golf"))
+quick_season = _slug(quick_col2.text_input("Quick Season", value="2026-ss"))
+quick_item = _slug(quick_col3.selectbox("Quick Item", ["tee", "pants", "outer", "knit", "other"], index=0))
+quick_urls = st.text_area(
+    "URL 붙여넣기 (한 줄 하나)",
+    placeholder="https://www.vogue.com/fashion-shows/...\nhttps://brand.com/lookbook/...",
+    height=120,
+)
+if st.button("원클릭 수집 실행 (등록+캡처)", type="primary", use_container_width=True):
+    urls = read_urls(quick_urls)
+    if not urls:
+        st.warning("최소 1개 URL이 필요합니다.")
+    else:
+        rows = [RefRow(brand=quick_brand, season=quick_season, item=quick_item, source_url=u) for u in urls]
+        inserted, duplicated = enqueue_urls(conn, rows)
+        pending_rows = list_pending(conn, limit=300)
+        success_n = 0
+        failed_n = 0
+        if pending_rows:
+            with st.spinner(f"수집 실행 중 ({len(pending_rows)}건)"):
+                success_n, failed_n = process_queue(conn, pending_rows, output_root, width, height, timeout_ms, retries)
+        st.success(
+            f"등록 {inserted}건 / 중복 {duplicated}건 / 캡처성공 {success_n}건 / 실패 {failed_n}건"
+        )
+
+st.divider()
+st.subheader("2) URL 큐 등록 (고급)")
 form_col1, form_col2, form_col3 = st.columns(3)
 brand = _slug(form_col1.text_input("Brand", value="apc-golf"))
 season = _slug(form_col2.text_input("Season", value="2026-ss"))
@@ -161,7 +189,7 @@ if queue_col3.button("FAILED -> PENDING 재시도", use_container_width=True):
     cnt = reset_to_pending(conn, [r["id"] for r in failed_rows])
     st.success(f"{cnt}건을 재시도 대기 상태로 변경")
 
-st.subheader("2) 파일 업로드 (로컬 이미지/리포트)")
+st.subheader("3) 파일 업로드 (로컬 이미지/리포트)")
 uploaded_assets = st.file_uploader(
     "이미지/리포트 업로드",
     type=["png", "jpg", "jpeg", "webp", "pdf", "csv", "txt"],
@@ -185,7 +213,7 @@ if st.button("업로드 저장 및 레코드 등록", use_container_width=True):
         st.success(f"{len(saved_paths)}건 저장 및 인덱싱 완료")
 
 st.divider()
-st.subheader("3) 인덱스 조회/태깅")
+st.subheader("4) 인덱스 조회/태깅")
 flt1, flt2, flt3, flt4, flt5 = st.columns(5)
 f_brand = flt1.text_input("Filter brand", "")
 f_season = flt2.text_input("Filter season", "")
@@ -234,7 +262,7 @@ else:
         out_csv = export_csv(conn, export_csv_path)
         st.success(f"내보내기 완료: {out_csv}")
 
-    st.subheader("4) 미리보기")
+    st.subheader("5) 미리보기")
     preview_n = st.slider("미리보기 수", min_value=1, max_value=30, value=8)
     for _, row in edited.head(preview_n).iterrows():
         st.caption(f"{row.get('brand', '')}/{row.get('season', '')}/{row.get('item', '')} | {row.get('status', '')}")
@@ -248,7 +276,7 @@ else:
             st.error(str(row.get("error_message")))
 
 st.divider()
-st.subheader("5) 아카이브")
+st.subheader("6) 아카이브")
 zip_col1, zip_col2 = st.columns(2)
 if zip_col1.button("출력 폴더 ZIP 생성", use_container_width=True):
     output_root.mkdir(parents=True, exist_ok=True)
