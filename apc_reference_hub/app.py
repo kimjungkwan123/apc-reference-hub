@@ -267,11 +267,15 @@ else:
     for _, row in edited.head(preview_n).iterrows():
         st.caption(f"{row.get('brand', '')}/{row.get('season', '')}/{row.get('item', '')} | {row.get('status', '')}")
         st.caption(str(row.get("source_url", "")))
-        p = Path(str(row.get("image_path", "")))
-        if p.exists():
-            st.image(str(p), use_container_width=True)
+        image_path = str(row.get("image_path", "")).strip()
+        if image_path:
+            p = Path(image_path)
+            if p.exists() and p.is_file():
+                st.image(str(p), use_container_width=True)
+            else:
+                st.warning(f"이미지 없음: {p}")
         else:
-            st.warning(f"이미지 없음: {p}")
+            st.warning("이미지 경로 없음")
         if str(row.get("error_message", "")).strip():
             st.error(str(row.get("error_message")))
 
