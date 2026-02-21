@@ -6,3 +6,17 @@ services:
     plan: free
     autoDeploy: true
     healthCheckPath: /
+    envVars:
+      - key: APC_APP
+        value: hub
+
+  - type: web
+    name: cardnews-studio
+    runtime: docker
+    rootDir: apc_reference_hub
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: APC_APP
+        value: cardnews
