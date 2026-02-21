@@ -4,6 +4,7 @@ import os
 import shutil
 from collections import defaultdict
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,15 @@ from storage import (
     apply_capture_result,
 )
 
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfgen import canvas
+
+    PDF_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    PDF_AVAILABLE = False
 
 APP_DIR = Path(__file__).resolve().parent
 DATA_ROOT = Path(os.environ.get("APC_HUB_DATA_DIR", str(APP_DIR))).expanduser().resolve()
@@ -140,6 +150,66 @@ def create_storybook_from_face(
     )
     story_path.write_text("\n".join(lines), encoding="utf-8")
     return out_dir, story_path
+
+
+def create_storybook_pdf_bytes(
+    title: str,
+    child_name: str,
+    theme: str,
+    tone: str,
+    template_name: str,
+    pages: list[str],
+) -> bytes:
+    if not PDF_AVAILABLE:
+        return b""
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    font_name = "Helvetica"
+    try:
+        font_name = "HYSMyeongJo-Medium"
+        pdfmetrics.registerFont(UnicodeCIDFont(font_name))
+    except Exception:  # noqa: BLE001
+        font_name = "Helvetica"
+
+    y = height - 50
+    c.setFont(font_name, 16)
+    c.drawString(40, y, title)
+    y -= 28
+
+    c.setFont(font_name, 11)
+    c.drawString(40, y, f"Child: {child_name}")
+    y -= 16
+    c.drawString(40, y, f"Theme: {theme}")
+    y -= 16
+    c.drawString(40, y, f"Tone: {tone}")
+    y -= 16
+    c.drawString(40, y, f"Template: {template_name}")
+    y -= 24
+
+    for idx, page in enumerate(pages, start=1):
+        if y < 100:
+            c.showPage()
+            c.setFont(font_name, 11)
+            y = height - 50
+        c.setFont(font_name, 12)
+        c.drawString(40, y, f"Page {idx}")
+        y -= 18
+        c.setFont(font_name, 11)
+        for line in page.splitlines() or [""]:
+            if y < 70:
+                c.showPage()
+                c.setFont(font_name, 11)
+                y = height - 50
+            c.drawString(50, y, line[:90])
+            y -= 15
+        y -= 10
+
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def require_password_if_needed() -> None:
@@ -331,23 +401,42 @@ else:
         ]
     )
     if sig != st.session_state["face_storybook_sig"]:
+        clean_child_name = child_name.strip() or "아이"
+        clean_theme = storybook_theme.strip() or "즐거운 모험"
+        pages = build_story_pages(clean_child_name, storybook_kind, custom_story)
+        title = f"{clean_child_name}의 {storybook_kind}"
         out_dir, story_path = create_storybook_from_face(
             face_upload=face_upload,
-            child_name=child_name.strip() or "아이",
-            theme=storybook_theme.strip() or "즐거운 모험",
+            child_name=clean_child_name,
+            theme=clean_theme,
             tone=tone,
             template_name=storybook_kind,
             custom_story=custom_story,
             output_root=output_root,
         )
         st.session_state["face_storybook_sig"] = sig
-        st.session_state["face_storybook_result"] = {"dir": str(out_dir), "story_path": str(story_path)}
+        st.session_state["face_storybook_result"] = {
+            "dir": str(out_dir),
+            "story_path": str(story_path),
+            "title": title,
+            "child_name": clean_child_name,
+            "theme": clean_theme,
+            "tone": tone,
+            "template_name": storybook_kind,
+            "pages": pages,
+        }
 
     result = st.session_state["face_storybook_result"]
     if result:
         story_path = Path(result["story_path"])
         st.success("동화책 생성 완료")
         st.caption(f"생성 경로: {result['dir']}")
+        with st.expander("동화책 미리보기", expanded=True):
+            st.markdown(f"### {result.get('title', '동화책')}")
+            for i, page in enumerate(result.get("pages", []), start=1):
+                st.markdown(f"**{i}페이지**")
+                st.write(page)
+
         if story_path.exists():
             st.download_button(
                 "동화책 마크다운 다운로드",
@@ -357,6 +446,26 @@ else:
                 use_container_width=True,
                 key="download_storybook_md",
             )
+            if PDF_AVAILABLE:
+                pdf_bytes = create_storybook_pdf_bytes(
+                    title=result.get("title", "Storybook"),
+                    child_name=result.get("child_name", ""),
+                    theme=result.get("theme", ""),
+                    tone=result.get("tone", ""),
+                    template_name=result.get("template_name", ""),
+                    pages=result.get("pages", []),
+                )
+                if pdf_bytes:
+                    st.download_button(
+                        "동화책 PDF 다운로드",
+                        data=pdf_bytes,
+                        file_name="storybook.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="download_storybook_pdf",
+                    )
+            else:
+                st.info("PDF 다운로드를 쓰려면 reportlab 설치가 필요합니다.")
 
 st.divider()
 st.subheader("4) 인덱스 조회/태깅")
