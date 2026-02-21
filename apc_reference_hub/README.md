@@ -47,6 +47,30 @@ streamlit run app.py
 - 데이터는 Render 디스크(`/var/data`)에 저장됩니다.
 - 서버가 꺼져도 DB/이미지 유지됩니다.
 
+
+## 카드뉴스 스튜디오 (독립 앱)
+기존 `app.py`(APC GOLF 레퍼런스 허브)와 분리된 카드뉴스 전용 앱입니다.
+
+### 그냥 URL만 치고 사용하려면 (권장)
+Render 배포를 하면 **앱 실행 명령 없이** URL만 입력해서 바로 접속할 수 있습니다.
+
+배포 후 접속:
+- `https://cardnews-studio.onrender.com` (실제 URL은 Render가 발급)
+
+설정:
+- 루트 `render.yaml`에 `cardnews-studio` 서비스가 추가되어 있어 Blueprint 배포 시 자동 생성됩니다.
+- `APC_APP=cardnews` 환경변수로 카드뉴스 앱(`cardnews_app.py`)이 실행됩니다.
+
+### 로컬에서 쓸 때(보조)
+- macOS: `start_cardnews.command` 더블클릭
+- Windows: `start_cardnews.bat` 더블클릭
+
+기능:
+- 시장조사 에이전트
+- 10장 카드뉴스 구성 에이전트
+- HTML 디자인 미리보기
+- ZIP 다운로드(요약/JSON/HTML 포함)
+
 ## 캡처 워커 실행 (무인/스케줄러용)
 ```bash
 cd "/Users/a/Documents/New project/apc_reference_hub"
