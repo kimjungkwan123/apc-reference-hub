@@ -7,7 +7,11 @@
 - 캡처 워커 실행 (`PENDING -> PROCESSING -> SUCCESS/FAILED`)
 - 실패건 재시도 (`FAILED -> PENDING`)
 - 업로드 파일 인덱싱
-- 아이 얼굴 업로드 후 즉시 동화책 생성 (화면 미리보기 + `storybook.md`/`PDF` 다운로드)
+- 아이 얼굴 업로드 후 즉시 동화책 생성 (페이지별 각도/색감 변형 이미지 + 미리보기 + `storybook.md`/`PDF` 다운로드)
+- 이미지 생성 모드 선택: `빠른 변형` 또는 `AI 장면 생성(Beta, OPENAI_API_KEY 필요)`
+- 생성 결과를 `ZIP(md+pdf+페이지이미지)`로 한 번에 다운로드
+- 대용량 업로드 보호(얼굴 이미지 15MB 제한) + `이미지 다시 생성` 버튼 제공
+- 이미지 정규화/검증(PNG 변환) + 결과 메타데이터(`manifest.json`) 저장
 - 태그/점수/노트 편집
 - DB -> `index.csv` 내보내기
 - 결과 폴더 zip 압축
