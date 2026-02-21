@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,32 @@ DATA_ROOT = Path(os.environ.get("APC_HUB_DATA_DIR", str(APP_DIR))).expanduser().
 DEFAULT_OUTPUT_ROOT = DATA_ROOT / "output"
 DEFAULT_DB_PATH = DATA_ROOT / "data" / "references.db"
 DEFAULT_EXPORT_CSV = DATA_ROOT / "index.csv"
+STORYBOOK_TEMPLATES: dict[str, list[str]] = {
+    "별빛 모험": [
+        "오늘 밤, {child}는 반짝이는 별지도를 따라 숲으로 떠났어요.",
+        "{child}의 미소를 본 반딧불이들이 길을 밝혀 주었어요.",
+        "달빛 호수에서 만난 부엉이 선생님이 용기의 주문을 알려 주었어요.",
+        "{child}는 별조각 퍼즐을 맞춰 잃어버린 길을 되찾았어요.",
+        "새벽이 오기 전, {child}는 친구들과 별다리를 건넜어요.",
+        "집에 돌아온 {child}는 내일 또 새로운 모험을 꿈꿨어요.",
+    ],
+    "바다 친구": [
+        "{child}는 파도 소리를 따라 푸른 바다 마을에 도착했어요.",
+        "작은 해마 친구가 {child}에게 산호 지도를 건네주었어요.",
+        "바닷속 동굴에서 길을 잃은 거북이를 함께 찾아 나섰어요.",
+        "{child}는 반짝이는 조개로 길표시를 만들어 친구들을 이끌었어요.",
+        "커다란 고래가 등장해 모두를 안전한 항구로 데려다주었어요.",
+        "{child}는 바다 친구들과 약속했어요. 다시 만나 모험하기로요.",
+    ],
+    "공룡 탐험": [
+        "{child}는 시간문을 지나 공룡 섬에 도착했어요.",
+        "초식공룡 친구가 {child}에게 숲길 안내를 부탁했어요.",
+        "화산이 흔들리자 {child}는 모두를 넓은 평원으로 이끌었어요.",
+        "작은 티라노가 겁을 먹자 {child}가 손을 잡아 주었어요.",
+        "위험이 지나가고 공룡들은 {child}를 용감한 대장으로 불렀어요.",
+        "집으로 돌아온 {child}는 탐험 일기에 오늘의 용기를 적었어요.",
+    ],
+}
 
 
 def get_conn(path: Path):
@@ -54,6 +81,65 @@ def save_uploaded_files(files: list[Any], target_dir: Path) -> list[str]:
             w.write(f.read())
         saved.append(str(out.resolve()))
     return saved
+
+
+def _safe_slug(v: str) -> str:
+    return _slug(v or "child")
+
+
+def build_story_pages(child_name: str, template_name: str, custom_story: str) -> list[str]:
+    custom_lines = [line.strip() for line in (custom_story or "").splitlines() if line.strip()]
+    if custom_lines:
+        return custom_lines[:6]
+    pages = STORYBOOK_TEMPLATES.get(template_name, STORYBOOK_TEMPLATES["별빛 모험"])
+    return [p.format(child=child_name) for p in pages]
+
+
+def create_storybook_from_face(
+    face_upload: Any,
+    child_name: str,
+    theme: str,
+    tone: str,
+    template_name: str,
+    custom_story: str,
+    output_root: Path,
+) -> tuple[Path, Path]:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    child_slug = _safe_slug(child_name)
+    out_dir = output_root / "storybook" / child_slug / ts
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(face_upload.name).suffix.lower() or ".jpg"
+    face_path = out_dir / f"face{ext}"
+    with face_path.open("wb") as w:
+        w.write(face_upload.getvalue())
+
+    title = f"{child_name}의 {template_name}"
+    pages = build_story_pages(child_name, template_name, custom_story)
+
+    story_path = out_dir / "storybook.md"
+    lines = [
+        f"# {title}",
+        "",
+        f"- 아이 이름: {child_name}",
+        f"- 테마: {theme}",
+        f"- 분위기: {tone}",
+        f"- 동화책 종류: {template_name}",
+        "",
+    ]
+    for i, page in enumerate(pages, start=1):
+        lines.append(f"## {i}페이지")
+        lines.append(page)
+        lines.append("")
+    lines.extend(
+        [
+            "## 얼굴 참조 이미지",
+            f"![face]({face_path.name})",
+            "",
+        ]
+    )
+    story_path.write_text("\n".join(lines), encoding="utf-8")
+    return out_dir, story_path
 
 
 def require_password_if_needed() -> None:
@@ -211,6 +297,66 @@ if st.button("업로드 저장 및 레코드 등록", use_container_width=True):
                 image_path=p,
             )
         st.success(f"{len(saved_paths)}건 저장 및 인덱싱 완료")
+
+st.subheader("3-1) 아이 얼굴로 즉시 동화책 만들기")
+sb_col1, sb_col2 = st.columns(2)
+child_name = sb_col1.text_input("아이 이름", value="하린")
+storybook_theme = sb_col2.text_input("동화 테마", value="용기와 우정")
+tone = st.selectbox("분위기", ["따뜻함", "신나는", "잔잔한", "유쾌한"], index=0)
+storybook_kind = st.selectbox("동화책 종류", list(STORYBOOK_TEMPLATES.keys()), index=0)
+custom_story = st.text_area(
+    "스토리 직접 수정 (선택, 한 줄=한 페이지, 최대 6줄)",
+    placeholder="1페이지 내용\n2페이지 내용\n...",
+    height=120,
+)
+face_upload = st.file_uploader("아이 얼굴 사진 업로드", type=["png", "jpg", "jpeg", "webp"], key="face_storybook_upload")
+
+if "face_storybook_sig" not in st.session_state:
+    st.session_state["face_storybook_sig"] = ""
+if "face_storybook_result" not in st.session_state:
+    st.session_state["face_storybook_result"] = None
+
+if face_upload is None:
+    st.info("얼굴 이미지를 업로드하면 자동으로 동화책이 생성됩니다.")
+else:
+    sig = "|".join(
+        [
+            face_upload.name,
+            str(face_upload.size),
+            child_name.strip(),
+            storybook_theme.strip(),
+            tone.strip(),
+            storybook_kind.strip(),
+            custom_story.strip(),
+        ]
+    )
+    if sig != st.session_state["face_storybook_sig"]:
+        out_dir, story_path = create_storybook_from_face(
+            face_upload=face_upload,
+            child_name=child_name.strip() or "아이",
+            theme=storybook_theme.strip() or "즐거운 모험",
+            tone=tone,
+            template_name=storybook_kind,
+            custom_story=custom_story,
+            output_root=output_root,
+        )
+        st.session_state["face_storybook_sig"] = sig
+        st.session_state["face_storybook_result"] = {"dir": str(out_dir), "story_path": str(story_path)}
+
+    result = st.session_state["face_storybook_result"]
+    if result:
+        story_path = Path(result["story_path"])
+        st.success("동화책 생성 완료")
+        st.caption(f"생성 경로: {result['dir']}")
+        if story_path.exists():
+            st.download_button(
+                "동화책 마크다운 다운로드",
+                data=story_path.read_bytes(),
+                file_name="storybook.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key="download_storybook_md",
+            )
 
 st.divider()
 st.subheader("4) 인덱스 조회/태깅")

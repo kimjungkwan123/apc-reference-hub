@@ -7,6 +7,7 @@
 - 캡처 워커 실행 (`PENDING -> PROCESSING -> SUCCESS/FAILED`)
 - 실패건 재시도 (`FAILED -> PENDING`)
 - 업로드 파일 인덱싱
+- 아이 얼굴 업로드 후 즉시 동화책 생성 (`storybook.md` + 다운로드)
 - 태그/점수/노트 편집
 - DB -> `index.csv` 내보내기
 - 결과 폴더 zip 압축
