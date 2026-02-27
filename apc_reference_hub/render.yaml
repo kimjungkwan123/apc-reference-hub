@@ -5,3 +5,10 @@ services:
     plan: free
     autoDeploy: true
     healthCheckPath: /
+    envVars:
+      - key: APC_HUB_DATA_DIR
+        value: /var/data
+    disk:
+      name: apc-reference-hub-data
+      mountPath: /var/data
+      sizeGB: 1

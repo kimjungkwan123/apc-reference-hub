@@ -2,11 +2,24 @@
 
 실운영 가능한 A.P.C. GOLF 레퍼런스 수집/태깅 웹앱입니다.
 
+## 터미널 없이 웹앱으로 쓰기 (권장)
+- 이 프로젝트는 브라우저 URL로 바로 접속 가능한 웹앱 배포를 지원합니다.
+- 운영자는 Render에 1회 배포만 하면 되고, 사용자는 **터미널 없이 링크 클릭만**으로 사용할 수 있습니다.
+- 저장소에 `render.yaml`, `Dockerfile`, `run_web.sh`가 포함되어 있어 배포 준비가 되어 있습니다.
+- Render 배포 시 `APC_HUB_DATA_DIR=/var/data`와 디스크 마운트가 자동 적용되어 데이터가 유지됩니다.
+
+### 가장 쉬운 운영 방식
+1. GitHub에 이 저장소를 push
+2. Render에서 `New +` → `Blueprint`
+3. 저장소 연결 후 배포
+4. Render가 발급한 URL을 사용자에게 공유
+
 ## 기능
 - URL 큐 등록 (`PENDING`)
 - 캡처 워커 실행 (`PENDING -> PROCESSING -> SUCCESS/FAILED`)
 - 실패건 재시도 (`FAILED -> PENDING`)
 - 업로드 파일 인덱싱
+- 아이 얼굴 업로드 즉시 자동 동화책 생성 (종류 선택/스토리 수정 가능, 얼굴 기준 이미지 포함)
 - 태그/점수/노트 편집
 - DB -> `index.csv` 내보내기
 - 결과 폴더 zip 압축

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,12 @@ DEFAULT_OUTPUT_ROOT = DATA_ROOT / "output"
 DEFAULT_DB_PATH = DATA_ROOT / "data" / "references.db"
 DEFAULT_EXPORT_CSV = DATA_ROOT / "index.csv"
 
+STORYBOOK_TEMPLATES = {
+    "별빛 모험": "starlight",
+    "바다 친구": "ocean",
+    "공룡 탐험": "dino",
+}
+
 
 def get_conn(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +61,70 @@ def save_uploaded_files(files: list[Any], target_dir: Path) -> list[str]:
             w.write(f.read())
         saved.append(str(out.resolve()))
     return saved
+
+
+def build_story_pages(template_code: str, child_name: str, theme: str, tone: str) -> list[str]:
+    if template_code == "ocean":
+        return [
+            f"{child_name}의 얼굴을 닮은 주인공이 푸른 {theme} 바다로 여행을 떠나요.",
+            "반짝이는 조개를 열자 주인공의 미소를 닮은 빛이 바닷속을 비춰요.",
+            f"돌고래 친구들과 함께 {tone} 분위기로 잃어버린 지도를 찾아요.",
+            "소용돌이 구간에서도 주인공은 침착하게 친구들을 이끌어요.",
+            f"마침내 숨겨진 산호 정원에서 {theme}의 비밀 보물을 발견해요.",
+            f"집으로 돌아온 {child_name}는 용감한 바다 탐험가로 칭찬받아요.",
+        ]
+    if template_code == "dino":
+        return [
+            f"{child_name}를 닮은 주인공이 {theme} 공룡 계곡의 문을 열어요.",
+            "발자국 단서를 따라가며 주인공은 자신감 있는 표정으로 앞장서요.",
+            f"초식 공룡 친구들과 {tone} 분위기의 미션을 하나씩 해결해요.",
+            "거대한 바위가 막아섰지만 주인공의 기지로 길이 열려요.",
+            f"정상에 올라 {theme} 계곡의 무지개 화석을 찾아 모두가 환호해요.",
+            f"마지막 장면에서 {child_name}의 웃음이 공룡 친구들의 축제가 돼요.",
+        ]
+    return [
+        f"{child_name}의 얼굴을 꼭 닮은 주인공이 {theme} 마을로 들어가며 이야기가 시작돼요.",
+        "반짝이는 거울에서 자신과 닮은 미소를 보고 주인공은 용기를 얻어요.",
+        f"친구들을 만나며 {tone} 분위기의 모험 단서를 하나씩 찾아요.",
+        "어려운 순간에도 주인공은 눈빛과 표정으로 진심을 전해 모두를 안심시켜요.",
+        f"마지막 관문을 통과한 뒤, {theme} 마을에 따뜻한 빛이 다시 퍼져요.",
+        f"모험이 끝나고 {child_name}의 환한 웃음이 마을의 새로운 전설이 돼요.",
+    ]
+
+
+def create_storybook_from_face(
+    *,
+    face_file: Any,
+    child_name: str,
+    theme: str,
+    tone: str,
+    output_root: Path,
+    title: str,
+    pages: list[str],
+) -> tuple[Path, Path]:
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    child_key = _slug(child_name)
+    story_dir = output_root / "storybook" / child_key / ts
+    story_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(face_file.name).suffix.lower() or ".png"
+    face_path = story_dir / f"face{ext}"
+    with face_path.open("wb") as f:
+        f.write(face_file.read())
+
+    story_md = story_dir / "storybook.md"
+    with story_md.open("w", encoding="utf-8") as f:
+        f.write(f"# {title}\n\n")
+        f.write(f"- 테마: {theme}\n")
+        f.write(f"- 톤: {tone}\n")
+        f.write(f"- 얼굴 기준 이미지: {face_path.name}\n\n")
+        for idx, page in enumerate(pages, start=1):
+            f.write(f"## 페이지 {idx}\n")
+            f.write(f"![page_{idx}_face_ref]({face_path.name})\n\n")
+            f.write(f"{page}\n\n")
+
+
+    return story_dir, story_md
 
 
 def require_password_if_needed() -> None:
@@ -211,6 +282,71 @@ if st.button("업로드 저장 및 레코드 등록", use_container_width=True):
                 image_path=p,
             )
         st.success(f"{len(saved_paths)}건 저장 및 인덱싱 완료")
+
+st.divider()
+st.subheader("3-1) 아이 얼굴로 즉시 동화책 만들기")
+sb_col1, sb_col2, sb_col3 = st.columns(3)
+child_name = sb_col1.text_input("아이 이름", value="하린")
+storybook_theme = sb_col2.text_input("동화 테마", value="별빛 숲")
+storybook_tone = sb_col3.selectbox("분위기", ["따뜻한", "모험적인", "유쾌한", "차분한"], index=0)
+storybook_kind = st.selectbox("동화책 종류 선택", list(STORYBOOK_TEMPLATES.keys()), index=0)
+custom_story_input = st.text_area(
+    "스토리 직접 수정 (선택, 한 줄=한 페이지)",
+    placeholder="직접 쓰고 싶으면 줄바꿈으로 페이지를 나눠 입력하세요.\n비워두면 선택한 동화책 템플릿이 사용됩니다.",
+    height=120,
+)
+face_image = st.file_uploader(
+    "아이 얼굴 사진 업로드 (올리는 즉시 동화책 자동 생성)",
+    type=["png", "jpg", "jpeg", "webp"],
+    key="storybook_face",
+)
+
+if "storybook_last_signature" not in st.session_state:
+    st.session_state["storybook_last_signature"] = ""
+if "storybook_result_dir" not in st.session_state:
+    st.session_state["storybook_result_dir"] = ""
+if "storybook_result_md" not in st.session_state:
+    st.session_state["storybook_result_md"] = ""
+
+if face_image:
+    current_signature = f"{face_image.name}:{face_image.size}:{child_name}:{storybook_theme}:{storybook_tone}:{storybook_kind}:{custom_story_input}"
+    if st.session_state["storybook_last_signature"] != current_signature:
+        with st.spinner("얼굴 특징을 반영해 동화책 생성 중..."):
+            story_title = f"{child_name}의 {storybook_kind}"
+            custom_pages = [line.strip() for line in custom_story_input.splitlines() if line.strip()]
+            story_pages = custom_pages if custom_pages else build_story_pages(
+                STORYBOOK_TEMPLATES[storybook_kind],
+                child_name,
+                storybook_theme,
+                storybook_tone,
+            )
+            story_dir, story_md = create_storybook_from_face(
+                face_file=face_image,
+                child_name=child_name,
+                theme=storybook_theme,
+                tone=storybook_tone,
+                output_root=output_root,
+                title=story_title,
+                pages=story_pages,
+            )
+        st.session_state["storybook_last_signature"] = current_signature
+        st.session_state["storybook_result_dir"] = str(story_dir)
+        st.session_state["storybook_result_md"] = str(story_md)
+
+if st.session_state["storybook_result_md"]:
+    story_md = Path(st.session_state["storybook_result_md"])
+    story_dir = Path(st.session_state["storybook_result_dir"])
+    st.success("업로드 완료: 얼굴 반영 동화책이 자동 생성되었습니다.")
+    st.caption(f"생성 경로: {story_dir}")
+    st.download_button(
+        "동화책 마크다운 다운로드",
+        data=story_md.read_text(encoding="utf-8"),
+        file_name=f"storybook_{_slug(child_name)}.md",
+        mime="text/markdown",
+        use_container_width=True,
+    )
+else:
+    st.info("아이 얼굴 사진을 업로드하면 동화책이 바로 생성됩니다.")
 
 st.divider()
 st.subheader("4) 인덱스 조회/태깅")
